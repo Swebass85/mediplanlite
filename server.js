@@ -5,13 +5,22 @@ import { mkdirSync, readFileSync } from "node:fs";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// -----------------------------------
+// Databas
+// -----------------------------------
+
 mkdirSync("database", { recursive: true });
 
 const db = new Database("database/mediplan.db");
+
 db.exec(readFileSync("database/schema.sql", "utf8"));
 
 app.use(express.json());
 app.use(express.static("public"));
+
+// -----------------------------------
+// Arbetspass
+// -----------------------------------
 
 const shifts = [
   { id: "morgon", name: "Morgon (06:00–14:00)" },
@@ -19,7 +28,28 @@ const shifts = [
   { id: "natt", name: "Natt (22:00–06:00)" },
 ];
 
-// Kontrollera bokningsuppgifter för både POST och PUT
+// -----------------------------------
+// Validera boknings-ID
+// -----------------------------------
+
+function validateId(req, res, next) {
+  const id = Number(req.params.id);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({
+      error: "Ogiltigt boknings-ID",
+    });
+  }
+
+  req.bookingId = id;
+
+  next();
+}
+
+// -----------------------------------
+// Validera bokningsuppgifter
+// -----------------------------------
+
 function validateBooking(data) {
   const { nurse_id, department, shift_date, shift, notes = "" } = data || {};
 
@@ -53,7 +83,9 @@ function validateBooking(data) {
     !shifts.some((item) => item.id === shift) ||
     typeof notes !== "string"
   ) {
-    return { error: "Kontrollera bokningens uppgifter" };
+    return {
+      error: "Kontrollera bokningens uppgifter",
+    };
   }
 
   return {
@@ -68,19 +100,28 @@ function validateBooking(data) {
   };
 }
 
-// READ – hämta sjuksköterskor
+// -----------------------------------
+// READ – sjuksköterskor
+// -----------------------------------
+
 app.get("/api/nurses", (req, res) => {
   const nurses = db.prepare("SELECT * FROM nurses ORDER BY name").all();
 
   res.json(nurses);
 });
 
-// READ – hämta arbetspass
+// -----------------------------------
+// READ – arbetspass
+// -----------------------------------
+
 app.get("/api/shifts", (req, res) => {
   res.json(shifts);
 });
 
-// READ – hämta alla bokningar
+// -----------------------------------
+// READ – alla bokningar
+// -----------------------------------
+
 app.get("/api/bookings", (req, res) => {
   const bookings = db
     .prepare("SELECT * FROM bookings ORDER BY shift_date, id")
@@ -89,11 +130,14 @@ app.get("/api/bookings", (req, res) => {
   res.json(bookings);
 });
 
-// READ – hämta en bokning
-app.get("/api/bookings/:id", (req, res) => {
+// -----------------------------------
+// READ – en bokning
+// -----------------------------------
+
+app.get("/api/bookings/:id", validateId, (req, res) => {
   const booking = db
     .prepare("SELECT * FROM bookings WHERE id = ?")
-    .get(req.params.id);
+    .get(req.bookingId);
 
   if (!booking) {
     return res.status(404).json({
@@ -104,12 +148,17 @@ app.get("/api/bookings/:id", (req, res) => {
   res.json(booking);
 });
 
+// -----------------------------------
 // CREATE – skapa bokning
+// -----------------------------------
+
 app.post("/api/bookings", (req, res) => {
   const result = validateBooking(req.body);
 
   if (result.error) {
-    return res.status(400).json({ error: result.error });
+    return res.status(400).json({
+      error: result.error,
+    });
   }
 
   const booking = result.booking;
@@ -138,11 +187,14 @@ app.post("/api/bookings", (req, res) => {
   res.status(201).json(created);
 });
 
-// UPDATE – ändra befintlig bokning
-app.put("/api/bookings/:id", (req, res) => {
+// -----------------------------------
+// UPDATE – redigera bokning
+// -----------------------------------
+
+app.put("/api/bookings/:id", validateId, (req, res) => {
   const existing = db
     .prepare("SELECT * FROM bookings WHERE id = ?")
-    .get(req.params.id);
+    .get(req.bookingId);
 
   if (!existing) {
     return res.status(404).json({
@@ -153,7 +205,9 @@ app.put("/api/bookings/:id", (req, res) => {
   const result = validateBooking(req.body);
 
   if (result.error) {
-    return res.status(400).json({ error: result.error });
+    return res.status(400).json({
+      error: result.error,
+    });
   }
 
   const booking = result.booking;
@@ -177,21 +231,24 @@ app.put("/api/bookings/:id", (req, res) => {
     booking.shift_date,
     booking.shift,
     booking.notes,
-    req.params.id,
+    req.bookingId,
   );
 
   const updated = db
     .prepare("SELECT * FROM bookings WHERE id = ?")
-    .get(req.params.id);
+    .get(req.bookingId);
 
   res.json(updated);
 });
 
+// -----------------------------------
 // DELETE – ta bort bokning
-app.delete("/api/bookings/:id", (req, res) => {
+// -----------------------------------
+
+app.delete("/api/bookings/:id", validateId, (req, res) => {
   const result = db
     .prepare("DELETE FROM bookings WHERE id = ?")
-    .run(req.params.id);
+    .run(req.bookingId);
 
   if (result.changes === 0) {
     return res.status(404).json({
@@ -201,6 +258,34 @@ app.delete("/api/bookings/:id", (req, res) => {
 
   res.status(204).end();
 });
+
+// -----------------------------------
+// Felhantering
+// -----------------------------------
+
+// Ogiltig JSON i request body
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && "body" in error) {
+    return res.status(400).json({
+      error: "Ogiltig JSON",
+    });
+  }
+
+  next(error);
+});
+
+// Ohanterade fel, exempelvis databasfel
+app.use((error, req, res, next) => {
+  console.error("Serverfel:", error);
+
+  res.status(500).json({
+    error: "Ett internt serverfel uppstod",
+  });
+});
+
+// -----------------------------------
+// Starta servern
+// -----------------------------------
 
 app.listen(PORT, () => {
   console.log(`MediPlan körs på http://localhost:${PORT}`);
