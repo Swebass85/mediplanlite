@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0"
+    />
+    <title>MediPlan – Bokningsadministration</title>
+    <link
+      rel="stylesheet"
+      href="/style.css"
+    />
+    <script
+      src="/app.js"
+      defer
+    ></script>
+  </head>
+
+  <body>
+    <main>
+      <header>MediPlan</header>
+
+      <h1>Bokningsadministration</h1>
+
+      <form id="bookingForm">
+        <div class="fields">
+          <label>
+            Sjuksköterska
+            <select
+              name="nurse_id"
+              id="nurse"
+              required
+            >
+              <option value="">Välj sjuksköterska</option>
+            </select>
+          </label>
+
+          <label>
+            Personal-ID
+            <input
+              id="staffId"
+              readonly
+            />
+          </label>
+
+          <label>
+            Avdelning
+            <select
+              name="department"
+              id="department"
+              required
+            >
+              <option value="">Välj avdelning</option>
+              <option value="Akuten">Akuten</option>
+              <option value="Kirurgi">Kirurgi</option>
+              <option value="Förlossning">Förlossning</option>
+            </select>
+          </label>
+
+          <label>
+            Datum
+            <input
+              name="shift_date"
+              type="date"
+              required
+            />
+          </label>
+
+          <label>
+            Arbetspass
+            <select
+              name="shift"
+              id="shift"
+              required
+            >
+              <option value="">Välj arbetspass</option>
+            </select>
+          </label>
+
+          <label class="full">
+            Anteckning
+            <textarea
+              name="notes"
+              rows="4"
+            ></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button
+            type="button"
+            id="cancelEdit"
+            hidden
+          >
+            Avbryt redigering
+          </button>
+
+          <button
+            type="submit"
+            id="submitButton"
+          >
+            Boka sjuksköterska
+          </button>
+        </div>
+      </form>
+
+      <p
+        id="message"
+        role="status"
+        aria-live="polite"
+      ></p>
+
+      <label class="search">
+        Sök sjuksköterska
+        <input
+          id="search"
+          type="search"
+          placeholder="Sök namn"
+        />
+      </label>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Sjuksköterska</th>
+            <th>Personal-ID</th>
+            <th>Avdelning</th>
+            <th>Datum</th>
+            <th>Pass</th>
+            <th>Åtgärder</th>
+          </tr>
+        </thead>
+
+        <tbody id="bookingsTable"></tbody>
+      </table>
+
+      <dialog id="detailsDialog">
+        <h2>Bokningsdetaljer</h2>
+        <div id="details"></div>
+
+        <form method="dialog">
+          <button>Stäng</button>
+        </form>
+      </dialog>
+    </main>
+  </body>
+</html>
