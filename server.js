@@ -290,3 +290,7 @@ app.use((error, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`MediPlan körs på http://localhost:${PORT}`);
 });
+
+
+
+
